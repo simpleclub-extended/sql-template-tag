@@ -23,11 +23,14 @@ const query = sql`SELECT * FROM books WHERE id = ${id}`;
 query.sql; //=> "SELECT * FROM books WHERE id = ?"
 query.text; //=> "SELECT * FROM books WHERE id = $1"
 query.statement; //=> "SELECT * FROM books WHERE id = :1"
+query.query; //=> "SELECT * FROM books WHERE id = ?"
+query.params; //=> [id]
 query.values; //=> [id]
 
 pg.query(query); // Uses `text` and `values`.
 mysql.query(query); // Uses `sql` and `values`.
 oracledb.execute(query); // Uses `statement` and `values`.
+bigquery.query(query); // Uses `query` and `params`.
 
 // Embed SQL instances inside SQL instances.
 const nested = sql`SELECT id FROM authors WHERE name = ${"Blake"}`;
@@ -88,7 +91,23 @@ query.values; //=> ["Blake", "Bob", "Joe"]
 
 ## Recipes
 
-This package "just works" with [`pg`](https://www.npmjs.com/package/pg), [`mysql`](https://www.npmjs.com/package/mysql), [`sqlite`](https://www.npmjs.com/package/sqlite) and [`oracledb`](https://www.npmjs.com/package/node-oracledb).
+This package "just works" with [`pg`](https://www.npmjs.com/package/pg), [`mysql`](https://www.npmjs.com/package/mysql), [`sqlite`](https://www.npmjs.com/package/sqlite), [`oracledb`](https://www.npmjs.com/package/node-oracledb) and [`@google-cloud/bigquery`](https://www.npmjs.com/package/@google-cloud/bigquery).
+
+### [BigQuery](https://www.npmjs.com/package/@google-cloud/bigquery)
+
+```js
+import { BigQuery } from "@google-cloud/bigquery";
+import sql from "sql-template-tag";
+
+const bigquery = new BigQuery();
+const dataset = bigquery.dataset("my_dataset");
+
+// Create query with parameters
+const query = sql`SELECT * FROM \`my_dataset.my_table\` WHERE id = ${123}`;
+
+// Use directly with BigQuery - works just like other drivers!
+const [rows] = await dataset.query(query);
+```
 
 ### [MSSQL](https://www.npmjs.com/package/mssql)
 

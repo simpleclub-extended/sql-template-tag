@@ -90,11 +90,21 @@ export class Sql {
     return value;
   }
 
+  get query() {
+    return this.sql;
+  }
+
+  get params() {
+    return this.values;
+  }
+
   inspect() {
     return {
       sql: this.sql,
       statement: this.statement,
       text: this.text,
+      query: this.query,
+      params: this.params,
       values: this.values,
     };
   }

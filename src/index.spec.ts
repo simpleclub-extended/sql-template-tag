@@ -186,4 +186,85 @@ describe("sql template tag", () => {
       expect(() => bulk([[1, 2], [1, 3], [1]])).toThrowError(TypeError);
     });
   });
+
+  describe("BigQuery integration", () => {
+    it("should generate query and params for BigQuery", () => {
+      const query = sql`SELECT * FROM books WHERE id = ${123}`;
+
+      expect(query.query).toEqual("SELECT * FROM books WHERE id = ?");
+      expect(query.params).toEqual([123]);
+    });
+
+    it("should generate query and params with multiple parameters", () => {
+      const name = "Blake";
+      const age = 30;
+      const query = sql`SELECT * FROM users WHERE name = ${name} AND age = ${age}`;
+
+      expect(query.query).toEqual(
+        "SELECT * FROM users WHERE name = ? AND age = ?",
+      );
+      expect(query.params).toEqual([name, age]);
+    });
+
+    it("should generate query and params with nested SQL", () => {
+      const subquery = sql`SELECT id FROM authors WHERE name = ${"Blake"}`;
+      const query = sql`SELECT * FROM books WHERE author_id IN (${subquery})`;
+
+      expect(query.query).toEqual(
+        "SELECT * FROM books WHERE author_id IN (SELECT id FROM authors WHERE name = ?)",
+      );
+      expect(query.params).toEqual(["Blake"]);
+    });
+
+    it("should include query and params in inspect", () => {
+      const query = sql`SELECT * FROM books WHERE id = ${123}`;
+      const inspected = query.inspect();
+
+      expect(inspected.query).toEqual("SELECT * FROM books WHERE id = ?");
+      expect(inspected.params).toEqual([123]);
+    });
+
+    it("should work with join in query format", () => {
+      const ids = [1, 2, 3];
+      const query = sql`SELECT * FROM books WHERE id IN (${join(ids)})`;
+
+      expect(query.query).toEqual("SELECT * FROM books WHERE id IN (?,?,?)");
+      expect(query.params).toEqual([1, 2, 3]);
+    });
+
+    it("should work with bulk in query format", () => {
+      const data = [
+        ["Blake", 30],
+        ["Taylor", 25],
+      ];
+      const query = sql`INSERT INTO users (name, age) VALUES ${bulk(data)}`;
+
+      expect(query.query).toEqual(
+        "INSERT INTO users (name, age) VALUES (?,?),(?,?)",
+      );
+      expect(query.params).toEqual(["Blake", 30, "Taylor", 25]);
+    });
+
+    it("should handle complex nested queries", () => {
+      const userId = 123;
+      const minAge = 18;
+      const subquery = sql`SELECT book_id FROM user_books WHERE user_id = ${userId}`;
+      const query = sql`SELECT * FROM books WHERE id IN (${subquery}) AND age >= ${minAge}`;
+
+      expect(query.query).toEqual(
+        "SELECT * FROM books WHERE id IN (SELECT book_id FROM user_books WHERE user_id = ?) AND age >= ?",
+      );
+      expect(query.params).toEqual([userId, minAge]);
+    });
+
+    it("should work directly with BigQuery query interface", () => {
+      const query = sql`SELECT * FROM books WHERE id = ${123} AND name = ${"test"}`;
+
+      // This simulates how BigQuery would use the query directly
+      expect(query.query).toEqual(
+        "SELECT * FROM books WHERE id = ? AND name = ?",
+      );
+      expect(query.params).toEqual([123, "test"]);
+    });
+  });
 });
