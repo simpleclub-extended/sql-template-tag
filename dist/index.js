@@ -1,7 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.empty =
+  exports.raw =
+  exports.bulk =
+  exports.join =
+  exports.Sql =
+    void 0;
 /**
  * A SQL instance can be nested within each other to build SQL strings.
  */
-export class Sql {
+class Sql {
   constructor(rawStrings, rawValues) {
     if (rawStrings.length - 1 !== rawValues.length) {
       if (rawStrings.length === 0) {
@@ -82,10 +90,11 @@ export class Sql {
     };
   }
 }
+exports.Sql = Sql;
 /**
  * Create a SQL query for a list of values.
  */
-export function join(values, separator = ",", prefix = "", suffix = "") {
+function join(values, separator = ",", prefix = "", suffix = "") {
   if (values.length === 0) {
     throw new TypeError(
       "Expected `join([])` to be called with an array of multiple elements, but got an empty array",
@@ -96,10 +105,11 @@ export function join(values, separator = ",", prefix = "", suffix = "") {
     values,
   );
 }
+exports.join = join;
 /**
  * Create a SQL query for a list of structured values.
  */
-export function bulk(data, separator = ",", prefix = "", suffix = "") {
+function bulk(data, separator = ",", prefix = "", suffix = "") {
   const length = data.length && data[0].length;
   if (length === 0) {
     throw new TypeError(
@@ -119,20 +129,23 @@ export function bulk(data, separator = ",", prefix = "", suffix = "") {
     values,
   );
 }
+exports.bulk = bulk;
 /**
  * Create raw SQL statement.
  */
-export function raw(value) {
+function raw(value) {
   return new Sql([value], []);
 }
+exports.raw = raw;
 /**
  * Placeholder value for "no text".
  */
-export const empty = raw("");
+exports.empty = raw("");
 /**
  * Create a SQL object from a template string.
  */
-export default function sql(strings, ...values) {
+function sql(strings, ...values) {
   return new Sql(strings, values);
 }
+exports.default = sql;
 //# sourceMappingURL=index.js.map

@@ -15,6 +15,15 @@ npm install sql-template-tag --save
 
 ## Usage
 
+### CommonJS
+
+```js
+const sql = require("sql-template-tag").default;
+const { empty, join, raw } = require("sql-template-tag");
+```
+
+### ES Modules
+
 ```js
 import sql, { empty, join, raw } from "sql-template-tag";
 
@@ -94,6 +103,24 @@ query.values; //=> ["Blake", "Bob", "Joe"]
 This package "just works" with [`pg`](https://www.npmjs.com/package/pg), [`mysql`](https://www.npmjs.com/package/mysql), [`sqlite`](https://www.npmjs.com/package/sqlite), [`oracledb`](https://www.npmjs.com/package/node-oracledb) and [`@google-cloud/bigquery`](https://www.npmjs.com/package/@google-cloud/bigquery).
 
 ### [BigQuery](https://www.npmjs.com/package/@google-cloud/bigquery)
+
+#### CommonJS
+
+```js
+const { BigQuery } = require("@google-cloud/bigquery");
+const sql = require("sql-template-tag").default;
+
+const bigquery = new BigQuery();
+const dataset = bigquery.dataset("my_dataset");
+
+// Create query with parameters
+const query = sql`SELECT * FROM \`my_dataset.my_table\` WHERE id = ${123}`;
+
+// Use directly with BigQuery - works just like other drivers!
+const [rows] = await dataset.query(query);
+```
+
+#### ES Modules
 
 ```js
 import { BigQuery } from "@google-cloud/bigquery";
