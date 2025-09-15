@@ -15,17 +15,9 @@ npm install sql-template-tag --save
 
 ## Usage
 
-### CommonJS
-
 ```js
 const sql = require("sql-template-tag").default;
 const { empty, join, raw } = require("sql-template-tag");
-```
-
-### ES Modules
-
-```js
-import sql, { empty, join, raw } from "sql-template-tag";
 
 const query = sql`SELECT * FROM books WHERE id = ${id}`;
 
@@ -104,27 +96,9 @@ This package "just works" with [`pg`](https://www.npmjs.com/package/pg), [`mysql
 
 ### [BigQuery](https://www.npmjs.com/package/@google-cloud/bigquery)
 
-#### CommonJS
-
 ```js
 const { BigQuery } = require("@google-cloud/bigquery");
 const sql = require("sql-template-tag").default;
-
-const bigquery = new BigQuery();
-const dataset = bigquery.dataset("my_dataset");
-
-// Create query with parameters
-const query = sql`SELECT * FROM \`my_dataset.my_table\` WHERE id = ${123}`;
-
-// Use directly with BigQuery - works just like other drivers!
-const [rows] = await dataset.query(query);
-```
-
-#### ES Modules
-
-```js
-import { BigQuery } from "@google-cloud/bigquery";
-import sql from "sql-template-tag";
 
 const bigquery = new BigQuery();
 const dataset = bigquery.dataset("my_dataset");
@@ -147,7 +121,7 @@ mssql.query(query.strings, ...query.values);
 The default value is `unknown` to support [every possible input](https://github.com/blakeembrey/sql-template-tag/pull/26). If you want stricter TypeScript values you can create a new `sql` template tag function.
 
 ```ts
-import { Sql } from "sql-template-tag";
+const { Sql } = require("sql-template-tag");
 
 type SupportedValue =
   | string
