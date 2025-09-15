@@ -15,15 +15,16 @@
     "sqlite",
     "oracledb",
     "oracle",
-    "bigquery"
+    "bigquery",
+    "google-cloud"
   ],
-  "homepage": "https://github.com/blakeembrey/sql-template-tag",
+  "homepage": "https://github.com/simpleclub-extended/sql-template-tag",
   "bugs": {
-    "url": "https://github.com/blakeembrey/sql-template-tag/issues"
+    "url": "https://github.com/simpleclub-extended/sql-template-tag/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/blakeembrey/sql-template-tag.git"
+    "url": "git://github.com/simpleclub-extended/sql-template-tag.git"
   },
   "license": "MIT",
   "author": {
@@ -62,7 +63,7 @@
     "node": ">=14"
   },
   "publishConfig": {
-    "access": "public"
+    "registry": "https://npm.pkg.github.com"
   },
   "ts-scripts": {
     "project": [
