@@ -1,7 +1,7 @@
 {
   "name": "@simpleclub-extended/sql-template-tag",
-  "version": "6.0.0",
-  "description": "ES2015 tagged template string for preparing SQL statements, works with `pg`, `mysql`, `sqlite`, `oracledb` and `@google-cloud/bigquery`",
+  "version": "7.0.0",
+  "description": "ES2015 tagged template string for preparing BigQuery SQL statements",
   "keywords": [
     "sql",
     "template",

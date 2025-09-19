@@ -1,113 +1,73 @@
 /**
- * Values supported by SQL engine.
+ * Values supported by BigQuery.
  */
 export type Value = unknown;
 
 /**
- * Supported value or SQL instance.
+ * Plain object structure for BigQuery queries.
  */
-export type RawValue = Value | Sql;
+export interface SqlQuery {
+  query: string;
+  params: Value[];
+}
 
 /**
- * A SQL instance can be nested within each other to build SQL strings.
+ * Supported value or SQL query.
  */
-export class Sql {
-  readonly values: Value[];
-  readonly strings: string[];
+export type RawValue = Value | SqlQuery;
 
-  constructor(rawStrings: readonly string[], rawValues: readonly RawValue[]) {
-    if (rawStrings.length - 1 !== rawValues.length) {
-      if (rawStrings.length === 0) {
-        throw new TypeError("Expected at least 1 string");
-      }
+/**
+ * Type guard to check if value is a SqlQuery object.
+ */
+function isQueryObject(value: unknown): value is SqlQuery {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "query" in value &&
+    "params" in value
+  );
+}
 
-      throw new TypeError(
-        `Expected ${rawStrings.length} strings to have ${
-          rawStrings.length - 1
-        } values`,
-      );
+/**
+ * Process raw strings and values into a BigQuery-compatible query object.
+ */
+function processQuery(
+  rawStrings: readonly string[],
+  rawValues: readonly RawValue[],
+): SqlQuery {
+  if (rawStrings.length - 1 !== rawValues.length) {
+    if (rawStrings.length === 0) {
+      throw new TypeError("Expected at least 1 string");
     }
 
-    const valuesLength = rawValues.reduce<number>(
-      (len, value) => len + (value instanceof Sql ? value.values.length : 1),
-      0,
+    throw new TypeError(
+      `Expected ${rawStrings.length} strings to have ${
+        rawStrings.length - 1
+      } values`,
     );
+  }
 
-    this.values = new Array(valuesLength);
-    this.strings = new Array(valuesLength + 1);
+  const allParams: Value[] = [];
+  let result = rawStrings[0];
 
-    this.strings[0] = rawStrings[0];
+  for (let i = 0; i < rawValues.length; i++) {
+    const value = rawValues[i];
 
-    // Iterate over raw values, strings, and children. The value is always
-    // positioned between two strings, e.g. `index + 1`.
-    let i = 0,
-      pos = 0;
-    while (i < rawValues.length) {
-      const child = rawValues[i++];
-      const rawString = rawStrings[i];
-
-      // Check for nested `sql` queries.
-      if (child instanceof Sql) {
-        // Append child prefix text to current string.
-        this.strings[pos] += child.strings[0];
-
-        let childIndex = 0;
-        while (childIndex < child.values.length) {
-          this.values[pos++] = child.values[childIndex++];
-          this.strings[pos] = child.strings[childIndex];
-        }
-
-        // Append raw string to current string.
-        this.strings[pos] += rawString;
-      } else {
-        this.values[pos++] = child;
-        this.strings[pos] = rawString;
+    if (isQueryObject(value)) {
+      // For nested queries, we need to inline the query and add its params
+      result += value.query;
+      for (const param of value.params) {
+        allParams.push(param);
       }
+    } else {
+      allParams.push(value);
+      result += "?";
     }
+
+    result += rawStrings[i + 1];
   }
 
-  get sql() {
-    const len = this.strings.length;
-    let i = 1;
-    let value = this.strings[0];
-    while (i < len) value += `?${this.strings[i++]}`;
-    return value;
-  }
-
-  get statement() {
-    const len = this.strings.length;
-    let i = 1;
-    let value = this.strings[0];
-    while (i < len) value += `:${i}${this.strings[i++]}`;
-    return value;
-  }
-
-  get text() {
-    const len = this.strings.length;
-    let i = 1;
-    let value = this.strings[0];
-    while (i < len) value += `$${i}${this.strings[i++]}`;
-    return value;
-  }
-
-  get query() {
-    return this.sql;
-  }
-
-  get params() {
-    return this.values;
-  }
-
-  inspect() {
-    return {
-      sql: this.sql,
-      statement: this.statement,
-      text: this.text,
-      query: this.query,
-      params: this.params,
-      values: this.values,
-    };
-  }
+  return { query: result, params: allParams };
 }
 
 /**
@@ -118,14 +78,14 @@ export function join(
   separator = ",",
   prefix = "",
   suffix = "",
-) {
+): SqlQuery {
   if (values.length === 0) {
     throw new TypeError(
       "Expected `join([])` to be called with an array of multiple elements, but got an empty array",
     );
   }
 
-  return new Sql(
+  return processQuery(
     [prefix, ...Array(values.length - 1).fill(separator), suffix],
     values,
   );
@@ -139,7 +99,7 @@ export function bulk(
   separator = ",",
   prefix = "",
   suffix = "",
-) {
+): SqlQuery {
   const length = data.length && data[0].length;
 
   if (length === 0) {
@@ -155,10 +115,13 @@ export function bulk(
       );
     }
 
-    return new Sql(["(", ...Array(item.length - 1).fill(separator), ")"], item);
+    return processQuery(
+      ["(", ...Array(item.length - 1).fill(separator), ")"],
+      item,
+    );
   });
 
-  return new Sql(
+  return processQuery(
     [prefix, ...Array(values.length - 1).fill(separator), suffix],
     values,
   );
@@ -167,8 +130,8 @@ export function bulk(
 /**
  * Create raw SQL statement.
  */
-export function raw(value: string) {
-  return new Sql([value], []);
+export function raw(value: string): SqlQuery {
+  return { query: value, params: [] };
 }
 
 /**
@@ -182,6 +145,6 @@ export const empty = raw("");
 export default function sql(
   strings: readonly string[],
   ...values: readonly RawValue[]
-) {
-  return new Sql(strings, values);
+): SqlQuery {
+  return processQuery(strings, values);
 }

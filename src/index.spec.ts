@@ -1,106 +1,81 @@
-import { inspect } from "util";
 import { describe, it, expect } from "vitest";
-import sql, { empty, join, bulk, raw, Sql } from "./index.js";
+import sql, { empty, join, bulk, raw, type SqlQuery } from "./index.js";
 
-describe("sql template tag", () => {
-  it("should generate sql", () => {
+describe("sql template tag for BigQuery", () => {
+  it("should generate query", () => {
     const query = sql`SELECT * FROM books`;
 
-    expect(query.sql).toEqual("SELECT * FROM books");
-    expect(query.text).toEqual("SELECT * FROM books");
-    expect(query.statement).toEqual("SELECT * FROM books");
-    expect(query.values).toEqual([]);
+    expect(query.query).toEqual("SELECT * FROM books");
+    expect(query.params).toEqual([]);
   });
 
   it("should embed sql in sql", () => {
     const tableName = sql`books`;
     const query = sql`SELECT * FROM ${tableName}`;
 
-    expect(query.sql).toEqual("SELECT * FROM books");
-    expect(query.text).toEqual("SELECT * FROM books");
-    expect(query.statement).toEqual("SELECT * FROM books");
-    expect(query.values).toEqual([]);
+    expect(query.query).toEqual("SELECT * FROM books");
+    expect(query.params).toEqual([]);
   });
 
   it("should store values", () => {
     const name = "Blake";
     const query = sql`SELECT * FROM books WHERE author = ${name}`;
 
-    expect(query.sql).toEqual("SELECT * FROM books WHERE author = ?");
-    expect(query.text).toEqual("SELECT * FROM books WHERE author = $1");
-    expect(query.statement).toEqual("SELECT * FROM books WHERE author = :1");
-    expect(query.values).toEqual([name]);
+    expect(query.query).toEqual("SELECT * FROM books WHERE author = ?");
+    expect(query.params).toEqual([name]);
   });
 
   it("should build sql with child sql statements", () => {
     const subquery = sql`SELECT id FROM authors WHERE name = ${"Blake"}`;
     const query = sql`SELECT * FROM books WHERE author_id IN (${subquery})`;
 
-    expect(query.sql).toEqual(
+    expect(query.query).toEqual(
       "SELECT * FROM books WHERE author_id IN (SELECT id FROM authors WHERE name = ?)",
     );
-    expect(query.text).toEqual(
-      "SELECT * FROM books WHERE author_id IN (SELECT id FROM authors WHERE name = $1)",
-    );
-    expect(query.statement).toEqual(
-      "SELECT * FROM books WHERE author_id IN (SELECT id FROM authors WHERE name = :1)",
-    );
-    expect(query.values).toEqual(["Blake"]);
+    expect(query.params).toEqual(["Blake"]);
   });
 
-  it("should not cache values for mysql compatibility", () => {
+  it("should not cache values for compatibility", () => {
     const ids = [1, 2, 3];
     const query = sql`SELECT * FROM books WHERE id IN (${join(
       ids,
     )}) OR author_id IN (${join(ids)})`;
 
-    expect(query.sql).toEqual(
+    expect(query.query).toEqual(
       "SELECT * FROM books WHERE id IN (?,?,?) OR author_id IN (?,?,?)",
     );
-    expect(query.text).toEqual(
-      "SELECT * FROM books WHERE id IN ($1,$2,$3) OR author_id IN ($4,$5,$6)",
-    );
-    expect(query.statement).toEqual(
-      "SELECT * FROM books WHERE id IN (:1,:2,:3) OR author_id IN (:4,:5,:6)",
-    );
-    expect(query.values).toEqual([1, 2, 3, 1, 2, 3]);
+    expect(query.params).toEqual([1, 2, 3, 1, 2, 3]);
   });
 
   it('should provide "empty" helper', () => {
     const query = sql`SELECT * FROM books ${empty}`;
 
-    expect(query.sql).toEqual("SELECT * FROM books ");
-    expect(query.text).toEqual("SELECT * FROM books ");
-    expect(query.statement).toEqual("SELECT * FROM books ");
-    expect(query.values).toEqual([]);
-  });
-
-  it("should throw in constructor with no strings", () => {
-    expect(() => new Sql([], [])).toThrowError("Expected at least 1 string");
+    expect(query.query).toEqual("SELECT * FROM books ");
+    expect(query.params).toEqual([]);
   });
 
   it("should throw when values is less than expected", () => {
-    expect(() => new Sql(["", ""], [])).toThrowError(
-      "Expected 2 strings to have 1 values",
-    );
-  });
+    expect(() => sql`${"test"} ${"test2"} ${"test3"}`.query).not.toThrow();
 
-  it("should inspect sql instance", () => {
-    expect(inspect(sql`SELECT * FROM test`)).toContain(`'SELECT * FROM test'`);
+    expect(() => {
+      const strings = ["", ""];
+      const values: any[] = [];
+      return (sql as any)(strings, ...values);
+    }).toThrowError("Expected 2 strings to have 1 values");
   });
 
   it("should handle escaped back ticks", () => {
     const query = sql`UPDATE user SET \`name\` = 'Taylor'`;
 
-    expect(query.text).toEqual("UPDATE user SET `name` = 'Taylor'");
+    expect(query.query).toEqual("UPDATE user SET `name` = 'Taylor'");
   });
 
   describe("join", () => {
     it("should join list", () => {
       const query = join([1, 2, 3]);
 
-      expect(query.text).toEqual("$1,$2,$3");
-      expect(query.values).toEqual([1, 2, 3]);
+      expect(query.query).toEqual("?,?,?");
+      expect(query.params).toEqual([1, 2, 3]);
     });
 
     it("should error joining an empty list", () => {
@@ -116,24 +91,24 @@ describe("sql template tag", () => {
         " AND ",
       );
 
-      expect(query.text).toEqual(
-        "user.first_name LIKE $1 AND user.last_name LIKE $2",
+      expect(query.query).toEqual(
+        "user.first_name LIKE ? AND user.last_name LIKE ?",
       );
-      expect(query.values).toEqual(["Test", "User"]);
+      expect(query.params).toEqual(["Test", "User"]);
     });
 
     it("should support one term without separators", () => {
       const query = join([sql`user.first_name LIKE ${"Test"}`], " AND ");
 
-      expect(query.text).toEqual("user.first_name LIKE $1");
-      expect(query.values).toEqual(["Test"]);
+      expect(query.query).toEqual("user.first_name LIKE ?");
+      expect(query.params).toEqual(["Test"]);
     });
 
     it("should configure prefix and suffix characters", () => {
       const query = join([1, 2, 3], ",", "(", ")");
 
-      expect(query.text).toEqual("($1,$2,$3)");
-      expect(query.values).toEqual([1, 2, 3]);
+      expect(query.query).toEqual("(?,?,?)");
+      expect(query.params).toEqual([1, 2, 3]);
     });
   });
 
@@ -142,8 +117,8 @@ describe("sql template tag", () => {
       const value = Math.random().toString();
       const query = raw(value);
 
-      expect(query.sql).toEqual(value);
-      expect(query.values).toEqual([]);
+      expect(query.query).toEqual(value);
+      expect(query.params).toEqual([]);
     });
   });
 
@@ -159,7 +134,7 @@ describe("sql template tag", () => {
       ["object", { name: "Blake" }],
     ])("should allow using %s as a value", (_type, value) => {
       const query = sql`UPDATE user SET any_value = ${value}`;
-      expect(query.values).toEqual([value]);
+      expect(query.params).toEqual([value]);
     });
   });
 
@@ -170,8 +145,8 @@ describe("sql template tag", () => {
         [5, 2, 3],
       ]);
 
-      expect(query.text).toEqual("($1,$2,$3),($4,$5,$6)");
-      expect(query.values).toEqual([1, 2, 3, 5, 2, 3]);
+      expect(query.query).toEqual("(?,?,?),(?,?,?)");
+      expect(query.params).toEqual([1, 2, 3, 5, 2, 3]);
     });
 
     it("should error joining an empty list", () => {
@@ -188,6 +163,27 @@ describe("sql template tag", () => {
   });
 
   describe("BigQuery integration", () => {
+    it("should handle reused parameters correctly", () => {
+      const userId = 123;
+      const query = sql`SELECT * FROM books WHERE author_id = ${userId} OR editor_id = ${userId}`;
+
+      expect(query.query).toEqual(
+        "SELECT * FROM books WHERE author_id = ? OR editor_id = ?",
+      );
+      expect(query.params).toEqual([123, 123]);
+    });
+
+    it("should handle multiple reused parameters correctly", () => {
+      const userId = 123;
+      const status = "active";
+      const query = sql`SELECT * FROM books WHERE (author_id = ${userId} AND status = ${status}) OR (editor_id = ${userId} AND status = ${status})`;
+
+      expect(query.query).toEqual(
+        "SELECT * FROM books WHERE (author_id = ? AND status = ?) OR (editor_id = ? AND status = ?)",
+      );
+      expect(query.params).toEqual([123, "active", 123, "active"]);
+    });
+
     it("should generate query and params for BigQuery", () => {
       const query = sql`SELECT * FROM books WHERE id = ${123}`;
 
@@ -214,14 +210,6 @@ describe("sql template tag", () => {
         "SELECT * FROM books WHERE author_id IN (SELECT id FROM authors WHERE name = ?)",
       );
       expect(query.params).toEqual(["Blake"]);
-    });
-
-    it("should include query and params in inspect", () => {
-      const query = sql`SELECT * FROM books WHERE id = ${123}`;
-      const inspected = query.inspect();
-
-      expect(inspected.query).toEqual("SELECT * FROM books WHERE id = ?");
-      expect(inspected.params).toEqual([123]);
     });
 
     it("should work with join in query format", () => {
@@ -260,11 +248,21 @@ describe("sql template tag", () => {
     it("should work directly with BigQuery query interface", () => {
       const query = sql`SELECT * FROM books WHERE id = ${123} AND name = ${"test"}`;
 
-      // This simulates how BigQuery would use the query directly
       expect(query.query).toEqual(
         "SELECT * FROM books WHERE id = ? AND name = ?",
       );
       expect(query.params).toEqual([123, "test"]);
+    });
+
+    it("should return a plain object that BigQuery can use directly", () => {
+      const query = sql`SELECT * FROM books WHERE id = ${123}`;
+
+      // Ensure it's a plain object, not a class instance
+      expect(Object.getPrototypeOf(query)).toBe(Object.prototype);
+      expect(query.constructor).toBe(Object);
+
+      // Ensure it has exactly the properties BigQuery expects
+      expect(Object.keys(query).sort()).toEqual(["params", "query"]);
     });
   });
 });
